@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ThisForYouAlisa</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="game.js" defer></script>
+    
+</head>
+
+<body>
+
+    <div id="game-container">
+        <!-- Score -->
+        <div id="score-board">Score: <span id="score">0</span></div>
+
+        <!-- Main Menu -->
+        <div id="start-screen">
+            <div style="font-size: 60px; margin-bottom: 10px;">🎁</div>
+            <h1>Giftbox</h1>
+            <p class="subtitle">Hi Alisa! Merry Christmas, this is just a simple game, nothing much. But I think it is a
+                little fun.</p>
+            <p style="font-size: 0.8rem; color: #d63384; margin-top:20px;">Touch the sides of the screen to move (or use
+                the arrows if on PC)</p>
+            <button onclick="startGame()">Play</button>
+        </div>
+
+        <!-- Game Over -->
+        <div id="game-over-screen" class="hidden">
+            <h1>Oh no!</h1>
+            <p class="game-over-text"> A dev bug 👾 has caught you...</p>
+            <p class="game-over-text">Final Score: <span id="final-score">0</span></p>
+
+            <div class="button-container">
+                <button onclick="startGame()">Try Again</button>
+                <button class="secondary" onclick="exitToMenu()">Bye Bye</button>
+            </div>
+        </div>
+
+        <!-- im just a girl rat -->
+        <div id="player">
+            <div class="ear left"></div> <div class="ear right"></div>
+            <div class="mouse-body">
+                <div class="eye left"></div> <div class="eye right"></div><div class="nose"></div>
+            </div>
+            <div class="bow"><div class="bow-knot"></div></div>
+        </div>
+    </div>
+
+</body>
+
+</html>
