@@ -1,175 +1,189 @@
+const container = document.getElementById('game-container');
+const player = document.getElementById('player');
+const startScreen = document.getElementById('start-screen');
+const gameOverScreen = document.getElementById('game-over-screen');
+const scoreBoard = document.getElementById('score-board');
+const scoreEl = document.getElementById('score');
+const finalScoreEl = document.getElementById('final-score');
 
-// var
-const gameContainer = document.getElementById('game-container')
-const player = document.getElementById('player')
-const scoreDisplay = getElementById('score')
-const finalScoreDisplay = document.getElementById('final-score')
-const startScreen = document.getElementById('start-screen')
-const gameOverScreen = document.getElementById('game-over-screen')
+// Fallback: ensure buttons trigger actions even if inline handlers fail
+const playBtn = document.querySelector('#start-screen button');
+const tryAgainBtn = document.querySelector('#game-over-screen button:not(.secondary)');
+const exitBtn = document.querySelector('#game-over-screen .secondary');
 
-let isPlaying = false
-let score = 0
-let obstacleSpeed = 5
-let obstacleInterval
-let gameLoopId
+if (playBtn) playBtn.addEventListener('click', () => window.startGame?.());
+if (tryAgainBtn) tryAgainBtn.addEventListener('click', () => window.startGame?.());
+if (exitBtn) exitBtn.addEventListener('click', () => window.exitToMenu?.());
+
+let gameRunning = false;
+let moveDirection = 0;
+let leftPressed = false;
+let rightPressed = false;
+let playerX = 0;
+let lastTime = 0;
+let scoreTime = 0;
+let obstacleSpeed = 140; // px/s
+let playerSpeed = 320; // px/s
+let spawnIntervalId = null;
 let obstacles = [];
 
-let playerPositionPercent = 50
-let playerMoveSpeed = 1.8
-let isMovingLeft = false
-let isMovingRight = false
-
-// mobile responsive
-
-gameContainer.addEventListener('touchstart', handleTouch, { passive: false });
-gameContainer.addEventListener('touchend', stopTouch, { passive: false });
-gameContainer.addEventListener('touchcancel', stopTouch, { passive: false });
-
-function handleTouch(e) {
-    if (!isPlaying) return;
-    e.preventDefault();
-
-    const screenWidth = window.innerWidth;
-    const touchX = e.touches[0].clientX;
-
-    if (touchX < screenWidth / 2) {
-        isMovingLeft = true;
-        isMovingRight = false;
-    } else {
-        isMovingLeft = false;
-        isMovingRight = true;
-    }
+function clamp(val, min, max) {
+	return Math.min(Math.max(val, min), max);
 }
 
-function stopTouch(e) {
-    if (e.touches.length === 0) {
-        isMovingLeft = false;
-        isMovingRight = false;
-    }
-    document.addEventListener('keydown', (e) => {
-        if (!isPlaying) return;
-        if (e.key === 'ArrowLeft') { isMovingLeft = true; }
-        if (e.key === 'ArrowRight') { isMovingRight = true; }
-    });
-
-    document.addEventListener('keyup', (e) => {
-        if (e.key === 'ArrowLeft') { isMovingLeft = false; }
-        if (e.key === 'ArrowRight') { isMovingRight = false; }
-    });
-}
-
-
-// Main Logic
-
-function startGame() {
-    startScreen.classList.add('hidden');
-    gameOverScreen.classList.add('hidden');
-    isPlaying = true;
-    score = 0;
-    obstacleSpeed = 5;
-    scoreDisplay.innerText = score;
-
-    playerPositionPercent = 50;
-    updatePlayerPosition();
-    isMovingLeft = false;
-    isMovingRight = false;
-
-    obstacles.forEach(obs => obs.element.remove());
-    obstacles = [];
-
-    if (gameLoopId) cancelAnimationFrame(gameLoopId);
-    gameLoopId = requestAnimationFrame(gameLoop);
-
-    clearInterval(obstacleInterval);
-    obstacleInterval = setInterval(spawnObstacle, 1000);
-}
-
-function exitToMenu() {
-    gameOverScreen.classList.add('hidden');
-    startScreen.classList.remove('hidden');
-    isPlaying = false;
-
-    obstacles.forEach(obs => obs.element.remove())
-    obstacles = [];
-    resetGameVariables();
-}
-function resetGameVariables() {
-    if (gameLoopId) cancelAnimationFrame(gameLoopId);
-    clearInterval(obstacleInterval);
-    isMovingLeft = false; isMovingRight = false;
-    playerPositionPercent = 50;
-    updatePlayerPosition();
+function resetPlayerPosition() {
+	const cw = container.clientWidth;
+	const pw = player.offsetWidth;
+	playerX = (cw - pw) / 2;
+	player.style.left = playerX + 'px';
 }
 
 function spawnObstacle() {
-    if (!isPlaying) return;
-    const obstacle = document.createElement('div');
-    obstacle.classList.add('obstacle');
-    obstacle.innerText = '👾';
-    const randomX = Math.floor(Math.random() * 85) + 5;
-    obstacle.style.left = randomX + '%';
-    obstacle.style.top = '-50px';
-    gameContainer.appendChild(obstacle);
-    obstacles.push({ element: obstacle, y: -50 });
-
-    if (score > 0 && score % 5 === 0) {
-        obstacleSpeed += 0.3;
-        clearInterval(obstacleInterval);
-        let newTime = Math.max(500, 1000 - (score * 20));
-        obstacleInterval = setInterval(spawnObstacle, newTime);
-    }
+	if (!gameRunning) return;
+	const el = document.createElement('div');
+	el.className = 'obstacle';
+	el.textContent = '👾';
+	el.style.top = '-40px';
+	container.appendChild(el);
+	const cw = container.clientWidth;
+	const ow = el.offsetWidth || 40;
+	const x = Math.floor(Math.random() * (cw - ow));
+	el.style.left = x + 'px';
+	obstacles.push({ el, y: -40 });
 }
 
-function updatePlayerPosition() {
-    if (playerPositionPercent < 6) playerPositionPercent = 6;
-    if (playerPositionPercent > 94) playerPositionPercent = 94;
-    player.style.left = playerPositionPercent + '%';
+function updatePositions(dt) {
+	playerX += moveDirection * playerSpeed * dt;
+	const maxX = container.clientWidth - player.offsetWidth;
+	playerX = clamp(playerX, 0, maxX);
+	player.style.left = playerX + 'px';
+
+	for (let i = obstacles.length - 1; i >= 0; i--) {
+		const o = obstacles[i];
+		o.y += obstacleSpeed * dt;
+		o.el.style.top = o.y + 'px';
+		if (o.y > container.clientHeight) {
+			o.el.remove();
+			obstacles.splice(i, 1);
+		}
+	}
 }
 
-function gameLoop() {
-    if (isMovingLeft) {
-        playerPositionPercent -= playerMoveSpeed;
-    }
-    if (isMovingRight) {
-        playerPositionPercent += playerMoveSpeed;
-    }
-    updatePlayerPosition();
-
-    obstacles.forEach((obs, index) => {
-        obs.y += obstacleSpeed;
-        obs.element.style.top = obs.y + 'px';
-
-        const playerRect = player.getBoundingClientRect();
-        const obsRect = obs.element.getBoundingClientRect();
-
-        const hitboxPaddingX = 20;
-        const hitboxPaddingY = 15;
-
-        if (
-            playerRect.top + hitboxPaddingY < obsRect.bottom &&
-            playerRect.bottom - hitboxPaddingY > obsRect.top &&
-            playerRect.left + hitboxPaddingX < obsRect.right &&
-            playerRect.right - hitboxPaddingX > obsRect.left
-        ) {
-            gameOver();
-        }
-
-        if(obs.y > gameContainer.offsetHeight){
-            obs.element.remove();
-            obstacleSpeed.splice(index, 1);
-            score++;
-            scoreDisplay.innerText =score;
-        }
-    });
-
-    gameLoopId = requestAnimationFrame(gameLoop);
+function checkCollisions() {
+	const pRect = player.getBoundingClientRect();
+	for (const o of obstacles) {
+		const oRect = o.el.getBoundingClientRect();
+		const overlap = !(
+			oRect.right < pRect.left ||
+			oRect.left > pRect.right ||
+			oRect.bottom < pRect.top ||
+			oRect.top > pRect.bottom
+		);
+		if (overlap) {
+			gameOver();
+			return;
+		}
+	}
 }
 
-function gameOver(){
-    isPlaying=false;
-    resetGameVariables();
-    finalScoreDisplay.innerText = score;
-    gameOverScreen.classList.remove('hidden');
+function gameLoop(timestamp) {
+	if (!gameRunning) return;
+	if (!lastTime) lastTime = timestamp;
+	const dt = (timestamp - lastTime) / 1000;
+	lastTime = timestamp;
+
+	updatePositions(dt);
+	checkCollisions();
+
+	scoreTime += dt;
+	const displayed = Math.floor(scoreTime * 10);
+	scoreEl.textContent = String(displayed);
+
+	requestAnimationFrame(gameLoop);
 }
 
-updatePlayerPosition()
+function startGame() {
+	if (gameRunning) return;
+	gameRunning = true;
+	startScreen.classList.add('hidden');
+	gameOverScreen.classList.add('hidden');
+	scoreTime = 0;
+	lastTime = 0;
+
+	obstacles.forEach(o => o.el.remove());
+	obstacles = [];
+	resetPlayerPosition();
+
+	clearInterval(spawnIntervalId);
+	spawnIntervalId = setInterval(spawnObstacle, 800);
+	requestAnimationFrame(gameLoop);
+}
+
+function gameOver() {
+	if (!gameRunning) return;
+	gameRunning = false;
+	clearInterval(spawnIntervalId);
+	const finalDisplayed = Math.floor(scoreTime * 10);
+	finalScoreEl.textContent = String(finalDisplayed);
+	gameOverScreen.classList.remove('hidden');
+}
+
+function exitToMenu() {
+	gameRunning = false;
+	clearInterval(spawnIntervalId);
+	obstacles.forEach(o => o.el.remove());
+	obstacles = [];
+	scoreEl.textContent = '0';
+	startScreen.classList.remove('hidden');
+	gameOverScreen.classList.add('hidden');
+}
+
+function handleKeyDown(e) {
+	if (!gameRunning) return;
+	if (e.key === 'ArrowLeft') {
+		leftPressed = true;
+	} else if (e.key === 'ArrowRight') {
+		rightPressed = true;
+	}
+	moveDirection = rightPressed ? 1 : leftPressed ? -1 : 0;
+}
+
+function handleKeyUp(e) {
+	if (e.key === 'ArrowLeft') {
+		leftPressed = false;
+	} else if (e.key === 'ArrowRight') {
+		rightPressed = false;
+	}
+	moveDirection = rightPressed ? 1 : leftPressed ? -1 : 0;
+}
+
+function handlePointerDown(e) {
+	if (!gameRunning) return;
+	const rect = container.getBoundingClientRect();
+	const mid = rect.left + rect.width / 2;
+	if (e.clientX < mid) {
+		leftPressed = true;
+		rightPressed = false;
+	} else {
+		rightPressed = true;
+		leftPressed = false;
+	}
+	moveDirection = rightPressed ? 1 : leftPressed ? -1 : 0;
+}
+
+function handlePointerUp() {
+	leftPressed = false;
+	rightPressed = false;
+	moveDirection = 0;
+}
+
+window.addEventListener('keydown', handleKeyDown);
+window.addEventListener('keyup', handleKeyUp);
+container.addEventListener('pointerdown', handlePointerDown);
+container.addEventListener('pointerup', handlePointerUp);
+container.addEventListener('pointerleave', handlePointerUp);
+container.addEventListener('pointercancel', handlePointerUp);
+
+window.startGame = startGame;
+window.exitToMenu = exitToMenu;
+
